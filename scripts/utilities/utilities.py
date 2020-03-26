@@ -2,6 +2,7 @@ import re
 import pandas as pd
 from pandas.api.types import is_string_dtype, is_numeric_dtype, is_categorical_dtype
 import numpy as np
+import matplotlib.pyplot as plt
 
 def display_all(df):
     '''
@@ -61,7 +62,12 @@ def numericalize(df, n, c, max_n_cat):
     if not is_numeric_dtype(c) and len(c.cat.categories) > max_n_cat:
         df[n] = pd.Categorical(c).codes + 1
 
-def proc_df(df, y_fld, na_dict = None, max_n_cat = 0):
+def get_sample(df,n):
+    idxs = sorted(np.random.permutation(len(df))[:n])
+    return df.iloc[idxs]
+
+
+def proc_df(df, y_fld, na_dict = None, max_n_cat = 0, subset = None):
     '''
     splits dataframe into target variable and df
     converts the df into completely numerical data
@@ -71,6 +77,8 @@ def proc_df(df, y_fld, na_dict = None, max_n_cat = 0):
     
     if na_dict is given uses the dict to update the missing values
     '''
+    if subset:
+        df = get_sample(df, subset)
     ### separate y column
     if not is_numeric_dtype(df[y_fld]): df[y_fld].astype("category").cat.codes
     y = df[y_fld].values
@@ -103,3 +111,45 @@ class Train_Test_Split():
         return data[:train_size], data[train_size:]
     def random_splitter(self, data, train_size):
         raise NotImplementedError
+
+def draw_tree(t, df):
+    plt.figure(figsize = (100,100))
+    sklearn.tree.plot_tree(t, feature_names= df.columns, filled = True, rotate = True)
+    
+
+def var_summary(df, summary_fields, max_n_cat = 10):
+    '''
+    Create group wise average of various fields. 
+    e.g. include mean, std, accuracy etc
+    Use for identifying cases where model is performing badly
+    '''
+    categorical_feat = []
+    for n,c in df.items():
+        if is_categorical_dtype(c):
+            if len(c.cat.categories) < max_n_cat:
+                categorical_feat.append(n)
+    for field in categorical_feat:
+        print("############", field, "###############")
+        print(df[field].value_counts())
+        summary_fields.append(field)
+        summ = df[summary_fields].groupby(field, as_index = False).mean()
+        print(summ)
+        summary_fields.pop()
+        print("\n") 
+
+def rf_feat_imp(m, df):
+    feat = df.columns
+    imp = np.round(m.feature_importances_,6)
+    return pd.DataFrame({"feat":feat,"imp":imp}).sort_values("imp", ascending = False)
+
+def plot_corr_dendogram(df):
+    '''
+    plot correlation dendogram using spearman correlation
+    to be extended to use different distance measures
+    '''
+    corr = np.round(scipy.stats.spearmanr(df).correlation, 4)
+    corr_condensed = hc.distance.squareform(1-corr)
+    z = hc.linkage(corr_condensed, method='average')
+    fig = plt.figure(figsize=(16,10))
+    dendrogram = hc.dendrogram(z, labels=df.columns, orientation='left', leaf_font_size=16)
+    plt.show()
