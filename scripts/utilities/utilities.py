@@ -1,4 +1,7 @@
 import re
+import sklearn
+import scipy
+from scipy.cluster import hierarchy as hc
 import pandas as pd
 from pandas.api.types import is_string_dtype, is_numeric_dtype, is_categorical_dtype
 import numpy as np
@@ -45,8 +48,11 @@ def apply_cats(df, target):
             df[n] = df[n].astype("category").cat.as_ordered()
             df[n].cat.set_categories(target[n].cat.categories, ordered = True, inplace = True)
 
-def show_missing_ratio(data):
-    display_all(data.isnull().sum().sort_index()/len(data))
+def show_missing_ratio(data, desc = False):
+    if desc:
+        display_all(data.isnull().sum().sort_values(ascending = False)/len(data))
+    else:
+        display_all(data.isnull().sum().sort_index()/len(data))
 
 def fix_missing(df,n, c, na_dict):
     if is_numeric_dtype(c):
